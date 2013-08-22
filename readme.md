@@ -13,6 +13,21 @@ The cache takes some liberties. For example, a delay prevents recently promoted 
 
 There are now a number of respectable caching libraries for Go, such as [GroupCache](https://github.com/golang/groupcache) and [Vitess](https://code.google.com/p/vitess/source/browse/go/cache/lru_cache.go).
 
+### Usage
+After creating an instance, you can `Get`, `Set` or `Remove`. Items added to the cache must implement the `lrucache.CacheItem` interface, which simply defines `Size() int64` and `Expiry() time.Time`:
+
+
+    type Response struct {
+      body []byte
+      statusCode int
+    }
+    func (r *Response) Size() int64 {
+      return int64(len(body))
+    }
+    func (r *Response) Expires() time.Time {
+      return time.Now().Add(time.Hour)
+    }
+
 ### Installation
 Install using the "go get" command:
 
