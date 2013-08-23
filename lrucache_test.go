@@ -91,6 +91,45 @@ func TestRemovesAllSecondaryItemsFromTheCache(t *testing.T) {
   spec.Expect(len(c.groups)).ToEqual(1) // b has to be removed since there'2 only 1 item, and we know, from the above, that it's a
 }
 
+func TestHandlesRemovalOfAnInvalidPrimaryKey(t *testing.T) {
+  spec := gspec.New(t)
+  c := New(550)
+  item1 := NewItem("SAMPLE BODY FOR TESTING")
+  c.Set("a", "1", item1)
+  c.Remove("b")
+  spec.Expect(c.Get("a", "1")).ToEqual(item1)
+  spec.Expect(len(c.groups)).ToEqual(1) // b has to be removed since there'2 only 1 item, and we know, from the above, that it's a
+}
+
+func TestRemovesAnIndividualSecondaryItemFromTheCache(t *testing.T) {
+  spec := gspec.New(t)
+  c := New(550)
+  item1 := NewItem("SAMPLE BODY FOR TESTING")
+  item2 :=  NewItem("SAMPLE BODY FOR TESTING")
+  c.Set("a", "1", item1)
+  c.Set("b", "2", item2)
+  c.Set("b", "3", NewItem("SAMPLE BODY FOR TESTING"))
+  c.RemoveSecondary("b", "3")
+  spec.Expect(c.Get("a", "1")).ToEqual(item1)
+  spec.Expect(c.Get("b", "2")).ToEqual(item2)
+  spec.Expect(c.Get("b", "3")).ToEqual(nil)
+  spec.Expect(len(c.groups)).ToEqual(2)
+}
+
+func TestHandelsRemovalOfAnInvalidSecondaryKey(t *testing.T) {
+  spec := gspec.New(t)
+  c := New(550)
+  item1 := NewItem("SAMPLE BODY FOR TESTING")
+  item2 :=  NewItem("SAMPLE BODY FOR TESTING")
+  c.Set("a", "1", item1)
+  c.Set("b", "2", item2)
+  c.Set("b", "3", NewItem("SAMPLE BODY FOR TESTING"))
+  c.RemoveSecondary("b", "c")
+  spec.Expect(len(c.groups["a"].nodes)).ToEqual(1)
+  spec.Expect(len(c.groups["b"].nodes)).ToEqual(2)
+  spec.Expect(len(c.groups)).ToEqual(2)
+}
+
 func TestUpdateCapacity(t *testing.T) {
   spec := gspec.New(t)
   c := New(10000)

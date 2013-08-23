@@ -103,6 +103,22 @@ func (c *LRUCache) Remove(primaryKey string) bool {
   return true
 }
 
+
+func (c *LRUCache) RemoveSecondary(primaryKey string, secondaryKey string) bool {
+  c.lock.RLock()
+  group, exists := c.groups[primaryKey]
+  c.lock.RUnlock()
+  if exists == false { return false }
+
+  group.lock.Lock()
+  defer group.lock.Unlock()
+  node, exists := group.nodes[secondaryKey]
+  if exists == false { return false }
+  group.size -= node.item.Size()
+  delete(group.nodes, secondaryKey)
+  return true
+}
+
 func (c *LRUCache) getNode(primaryKey string, secondaryKey string) (*Group, *Node) {
   c.lock.RLock()
   group, ok := c.groups[primaryKey]
