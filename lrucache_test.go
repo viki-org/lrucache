@@ -136,12 +136,13 @@ func TestUpdateCapacity(t *testing.T) {
   item := NewItem("TestUpdateCapacity")
   item.length = 2500
   c.Set("abc", "1", item)
+  // -4 for len(primaryKey) + len(secondaryKey)
   spec.Expect(c.totalCapacity).ToEqual(10000)
-  spec.Expect(c.capacity).ToEqual(int64(7500 - ITEM_OVERHEAD))
+  spec.Expect(c.capacity).ToEqual(int64(7500 - ITEM_OVERHEAD - 4))
 
   c.UpdateCapacity(7500)
   spec.Expect(c.totalCapacity).ToEqual(7500)
-  spec.Expect(c.capacity).ToEqual(int64(5000) - ITEM_OVERHEAD)
+  spec.Expect(c.capacity).ToEqual(int64(5000) - ITEM_OVERHEAD - 4)
 }
 
 

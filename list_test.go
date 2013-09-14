@@ -2,7 +2,7 @@ package lrucache
 
 import (
   "testing"
-  "apiproxy/tests"
+  "github.com/viki-org/gspec"
 )
 
 func TestAddsNodesToTheHead(t *testing.T) {
@@ -40,7 +40,7 @@ func TestPromotesFromTheMiddle(t *testing.T) {
 }
 
 func TestPrunesTheList1(t *testing.T) {
-  spec := tests.Spec(t)
+  spec := gspec.New(t)
   l, one, two, three := sampleList()
   items := l.Prune(1)
   assertList(t, l, one, two)
@@ -49,7 +49,7 @@ func TestPrunesTheList1(t *testing.T) {
 }
 
 func TestPrunesTheList2(t *testing.T) {
-  spec := tests.Spec(t)
+  spec := gspec.New(t)
   l, one, two, three := sampleList()
   items := l.Prune(2)
   assertList(t, l, one)

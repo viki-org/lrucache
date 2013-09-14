@@ -7,7 +7,7 @@ import (
   "sync/atomic"
 )
 
-const ITEM_OVERHEAD = int64(350) // got this from inspecting memory usage and rounding up to 5x64
+const ITEM_OVERHEAD = int64(704)
 
 type LRUCache struct {
   totalCapacity int
@@ -44,10 +44,10 @@ func (c *LRUCache) Get(primaryKey string, secondaryKey string) CacheItem {
 }
 
 func (c *LRUCache) Set(primaryKey string, secondaryKey string, item CacheItem) {
-  size := item.Size() + ITEM_OVERHEAD
+  size := item.Size()
   group, existing  := c.getNode(primaryKey, secondaryKey)
   if existing != nil {
-    existingSize := existing.item.Size() + ITEM_OVERHEAD
+    existingSize := existing.item.Size()
     group.lock.Lock()
     group.size += existingSize - size
     existing.item = item
@@ -55,27 +55,31 @@ func (c *LRUCache) Set(primaryKey string, secondaryKey string, item CacheItem) {
     c.promote(group, existing)
     atomic.AddInt64(&c.capacity, existingSize + size)
   } else {
+    var primaryOverhead int64
     if group == nil {
       c.lock.Lock()
       group = c.groups[primaryKey]
       if group == nil {
+        primaryOverhead = int64(len(primaryKey))
         group = &Group{key: primaryKey, nodes: make(map[string]*Node, 5000),}
         c.groups[primaryKey] = group
       }
       c.lock.Unlock()
     }
     node := &Node{
+      item: item,
       group: group,
       key: secondaryKey,
-      item: item,
       promotable: time.Now().Add(time.Minute * 10),
     }
+    size += ITEM_OVERHEAD + int64(len(secondaryKey))
     group.lock.Lock()
     group.nodes[secondaryKey] = node
+
     group.size += size
     group.lock.Unlock()
     c.list.Push(node)
-    atomic.AddInt64(&c.capacity, -size)
+    atomic.AddInt64(&c.capacity, -(size+primaryOverhead))
   }
 }
 
@@ -102,7 +106,6 @@ func (c *LRUCache) Remove(primaryKey string) bool {
   }
   return true
 }
-
 
 func (c *LRUCache) RemoveSecondary(primaryKey string, secondaryKey string) bool {
   c.lock.RLock()
@@ -161,7 +164,7 @@ func (c *LRUCache) gc() {
     var freed int64
     for _, node := range nodes {
       if node == nil { break }
-      size := node.item.Size() + ITEM_OVERHEAD
+      size := node.item.Size() + ITEM_OVERHEAD + int64(len(node.key))
       group := node.group
       group.lock.Lock()
       delete(group.nodes, node.key)
