@@ -130,21 +130,6 @@ func TestHandelsRemovalOfAnInvalidSecondaryKey(t *testing.T) {
   spec.Expect(len(c.groups)).ToEqual(2)
 }
 
-func TestUpdateCapacity(t *testing.T) {
-  spec := gspec.New(t)
-  c := New(10000)
-  item := NewItem("TestUpdateCapacity")
-  item.length = 2500
-  c.Set("abc", "1", item)
-  // -4 for len(primaryKey) + len(secondaryKey)
-  spec.Expect(c.totalCapacity).ToEqual(10000)
-  spec.Expect(c.capacity).ToEqual(int64(7500 - ITEM_OVERHEAD - 4))
-
-  c.UpdateCapacity(7500)
-  spec.Expect(c.totalCapacity).ToEqual(7500)
-  spec.Expect(c.capacity).ToEqual(int64(5000) - ITEM_OVERHEAD - 4)
-}
-
 
 type ItemToCache struct {
   body string

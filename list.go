@@ -8,7 +8,7 @@ import (
 type List struct {
   head *Node
   tail *Node
-  lock sync.Mutex
+  sync.Mutex
 }
 
 type Node struct {
@@ -21,16 +21,16 @@ type Node struct {
 }
 
 func (l *List) Push(node *Node) {
-  l.lock.Lock()
+  l.Lock()
   node.next = l.head
   if l.head != nil { l.head.prev = node }
   l.head = node
   if l.tail == nil { l.tail = node }
-  l.lock.Unlock()
+  l.Unlock()
 }
 
 func (l *List) Remove(node *Node) {
-  l.lock.Lock()
+  l.Lock()
   if node.prev == nil {
     l.head = node.next
   } else {
@@ -41,7 +41,7 @@ func (l *List) Remove(node *Node) {
   } else {
     node.next.prev = node.prev
   }
-  l.lock.Unlock()
+  l.Unlock()
 }
 
 func (l *List) Promote(node *Node) {
@@ -50,7 +50,7 @@ func (l *List) Promote(node *Node) {
     l.Push(node)
     return
   }
-  l.lock.Lock()
+  l.Lock()
   if l.tail == node {
     l.tail = node.prev
   } else {
@@ -60,11 +60,11 @@ func (l *List) Promote(node *Node) {
   node.next = l.head
   l.head = node
   node.next.prev = node
-  l.lock.Unlock()
+  l.Unlock()
 }
 
 func (l *List) Prune(count int) []*Node {
-  l.lock.Lock()
+  l.Lock()
   nodes := make([]*Node, count)
   for i := 0; i < count; i++ {
     node := l.tail
@@ -79,6 +79,6 @@ func (l *List) Prune(count int) []*Node {
       break
     }
   }
-  l.lock.Unlock()
+  l.Unlock()
   return nodes
 }
