@@ -2,11 +2,15 @@ package lrucache
 // Package lrucache implements a least-recently-used cache
 
 import (
+  "io"
   "time"
   "sync"
   "runtime"
+  "strconv"
   "sync/atomic"
 )
+
+type GcCallback func()
 
 type LRUCache struct {
   list *List
@@ -21,13 +25,13 @@ type Group struct {
   nodes map[string]*Node
 }
 
-func New(size int) *LRUCache {
+func New(size int, gccallback GcCallback) *LRUCache {
   c := &LRUCache {
     size: uint64(size),
     list: new(List),
     groups: make(map[string]*Group, 50000),
   }
-  go c.gc()
+  go c.gc(gccallback)
   return c
 }
 
@@ -65,6 +69,39 @@ func (c *LRUCache) Set(primaryKey string, secondaryKey string, item CacheItem) {
     group.nodes[secondaryKey] = node
     group.Unlock()
     c.list.Push(node)
+  }
+}
+
+func (c *LRUCache) Debug(writer io.Writer) {
+  ms := new(runtime.MemStats)
+  runtime.ReadMemStats(ms)
+  writer.Write([]byte("alloc      : " + strconv.FormatUint(ms.Alloc, 10) + "\n"))
+  writer.Write([]byte("heap sys   : " + strconv.FormatUint(ms.HeapSys, 10) + "\n"))
+  writer.Write([]byte("heap alloc : " + strconv.FormatUint(ms.HeapAlloc, 10) + "\n"))
+  writer.Write([]byte("total alloc: " + strconv.FormatUint(ms.TotalAlloc, 10) + "\n"))
+
+
+  c.RLock()
+  groups := make([]*Group, len(c.groups))
+  for _, group := range c.groups {
+    groups = append(groups, group)
+  }
+  defer c.RUnlock()
+
+  newline := []byte("\n")
+  tab := []byte("\t")
+  for _, group := range c.groups {
+    group.RLock()
+    writer.Write([]byte(group.key))
+    writer.Write(newline)
+    for _, node := range group.nodes {
+     writer.Write(tab)
+     writer.Write([]byte(node.key))
+     writer.Write(tab)
+     writer.Write(node.item.Debug())
+     writer.Write(newline)
+    }
+    group.RUnlock()
   }
 }
 
@@ -135,9 +172,11 @@ func (c *LRUCache) promote(group *Group, node *Node) {
   group.Unlock()
 }
 
-func (c *LRUCache) gc() {
+func (c *LRUCache) gc(callback GcCallback) {
+  time.Sleep(30 * time.Second)
   ms := new(runtime.MemStats)
   for {
+    runtime.ReadMemStats(ms)
     if ms.HeapAlloc < atomic.LoadUint64(&c.size) {
       time.Sleep(30 * time.Second)
       continue
@@ -155,5 +194,6 @@ func (c *LRUCache) gc() {
       }
       group.Unlock()
     }
+    if callback != nil { callback() }
   }
 }

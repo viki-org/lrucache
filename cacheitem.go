@@ -6,4 +6,5 @@ import (
 
 type CacheItem interface {
   Expires() time.Time
+  Debug() []byte
 }
