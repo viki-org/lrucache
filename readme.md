@@ -2,7 +2,7 @@
 A map + linked-list backed LRU cache. Cached items belong to a primary and secondary cache key. This allows you to generate multiple versions of the same object yet purge all variations. For example:
 
     // 100MB
-    cache := cache.New(100 * 1024 * 1024)
+    cache := lrucache.New(lrucache.Configure())
     cache.Set("video/43", ".json", video1)
     cache.Set("video/43", ".xml", video2)
 
@@ -13,16 +13,35 @@ The cache takes some liberties. For example, a delay prevents recently promoted 
 
 There are now a number of respectable caching libraries for Go, such as [GroupCache](https://github.com/golang/groupcache) and [Vitess](https://code.google.com/p/vitess/source/browse/go/cache/lru_cache.go).
 
+The cache is thread-safe.
+
 ### Usage
-After creating an instance, you can `Get`, `Set` or `Remove`. Items added to the cache must implement the `lrucache.CacheItem` interface, which simply defines `Size() int64` and `Expiry() time.Time`:
+Start by creating an instance of the cache:
+
+    cache := lrucache.New(lrucache.Configure())
+
+The cache `size`, `itemsToPrune` and `callback` can be specific via the `configuration` object:
+
+    cache := lrucache.New(
+          lrucache.Configure()
+            .Size(1 * 1024 * 1024 * 1024)  //1GB
+            .ItemsToPrune(5000)            //# of items to prune when a GC runs
+            .Callback(func(){ atomic.AddUint64(&gcs, 1) }) //called whenever a GC runs
+        )
+
+
+After creating an instance, you can `Get`, `Set` or `Remove`. Items added to the cache must implement the `lrucache.CacheItem` interface, which simply defines `Debug() []byte` and `Expiry() time.Time`:
 
 
     type Response struct {
       body []byte
       statusCode int
     }
-    func (r *Response) Size() int64 {
-      return int64(len(body))
+    func (r *Response) Debug() []byte {
+      // Adds arbitrary data to the output of cache.Debug() for this line item.
+      // In this case, returning len(body) might be useful, or just do nothing
+      // if you aren't using Debug
+      return []byte{}
     }
     func (r *Response) Expires() time.Time {
       return time.Now().Add(time.Hour)

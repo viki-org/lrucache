@@ -7,16 +7,15 @@ import (
   "sync"
   "runtime"
   "strconv"
-  "sync/atomic"
 )
 
 type GcCallback func()
 
 type LRUCache struct {
   list *List
-  size uint64
   sync.RWMutex
   groups map[string]*Group
+  configuration *Configuration
 }
 
 type Group struct {
@@ -25,13 +24,13 @@ type Group struct {
   nodes map[string]*Node
 }
 
-func New(size int, gccallback GcCallback) *LRUCache {
+func New(configuration *Configuration) *LRUCache {
   c := &LRUCache {
-    size: uint64(size),
     list: new(List),
+    configuration: configuration,
     groups: make(map[string]*Group, 50000),
   }
-  go c.gc(gccallback)
+  go c.gc()
   return c
 }
 
@@ -105,12 +104,6 @@ func (c *LRUCache) Debug(writer io.Writer) {
   }
 }
 
-func (c* LRUCache) UpdateCapacity(size int) {
-  c.Lock()
-  c.size = uint64(size)
-  c.Unlock()
-}
-
 func (c *LRUCache) Remove(primaryKey string) bool {
   c.RLock()
   group, exists := c.groups[primaryKey]
@@ -172,16 +165,16 @@ func (c *LRUCache) promote(group *Group, node *Node) {
   group.Unlock()
 }
 
-func (c *LRUCache) gc(callback GcCallback) {
+func (c *LRUCache) gc() {
   time.Sleep(30 * time.Second)
   ms := new(runtime.MemStats)
   for {
     runtime.ReadMemStats(ms)
-    if ms.HeapAlloc < atomic.LoadUint64(&c.size) {
+    if ms.HeapAlloc < c.configuration.size {
       time.Sleep(30 * time.Second)
       continue
     }
-    nodes := c.list.Prune(10000)
+    nodes := c.list.Prune(c.configuration.itemsToPrune)
     for _, node := range nodes {
       if node == nil { break }
       group := node.group
@@ -194,6 +187,7 @@ func (c *LRUCache) gc(callback GcCallback) {
       }
       group.Unlock()
     }
-    if callback != nil { callback() }
+    if c.configuration.callback != nil { c.configuration.callback() }
+    time.Sleep(2 * time.Second)
   }
 }

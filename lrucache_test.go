@@ -7,19 +7,19 @@ import (
 )
 
 func TestReturnsNilIfPrimaryKeyIsNotInTheCache(t *testing.T) {
-  c := New(10000)
+  c := New(Configure())
   if c.Get("leto", "") != nil { t.Error("expecting nothing to be in the cache") }
 }
 
 func TestReturnsNilIfSecondaryKeyIsNotInTheCache(t *testing.T) {
-  c := New(10000)
+  c := New(Configure())
   c.Set("leto", "ghanima", NewItem("SAMPLE BODY FOR TESTING"))
   if c.Get("leto", "duncan") != nil { t.Error("expecting nothing to be in the cache") }
 }
 
 func TestGetReturnsTheItem(t *testing.T) {
   spec := gspec.New(t)
-  c := New(10000)
+  c := New(Configure())
   item := NewItem("SAMPLE BODY FOR TESTING")
   c.Set("the-p", "the-s", item)
   spec.Expect(c.Get("the-p", "the-s")).ToEqual(item)
@@ -27,7 +27,7 @@ func TestGetReturnsTheItem(t *testing.T) {
 
 func TestGetReturnsTheItemWithEmptySecondaryKey(t *testing.T) {
   spec := gspec.New(t)
-  c := New(10000)
+  c := New(Configure())
   item := NewItem("SAMPLE BODY FOR TESTING")
   c.Set("the-p", "", item)
   spec.Expect(c.Get("the-p", "")).ToEqual(item)
@@ -35,7 +35,7 @@ func TestGetReturnsTheItemWithEmptySecondaryKey(t *testing.T) {
 
 func TestGetPromotesTheItemToFrontOfTheCache(t *testing.T) {
   spec := gspec.New(t)
-  c := New(10000)
+  c := New(Configure())
   item1 := NewItem("SAMPLE BODY FOR TESTING")
   item2 := NewItem("SAMPLE BODY FOR TESTING")
   c.Set("a", "1", item1)
@@ -47,7 +47,7 @@ func TestGetPromotesTheItemToFrontOfTheCache(t *testing.T) {
 
 func TestGetDoesNotPromoteRecentlyPromotedItem(t *testing.T) {
   spec := gspec.New(t)
-  c := New(10000)
+  c := New(Configure())
   item1 := NewItem("SAMPLE BODY FOR TESTING")
   item2 := NewItem("SAMPLE BODY FOR TESTING")
   c.Set("a", "1", item1)
@@ -81,7 +81,7 @@ func TestGetDoesNotPromoteRecentlyPromotedItem(t *testing.T) {
 
 func TestRemovesAllSecondaryItemsFromTheCache(t *testing.T) {
   spec := gspec.New(t)
-  c := New(550)
+  c := New(Configure().Size(550))
   item1 := NewItem("SAMPLE BODY FOR TESTING")
   c.Set("a", "1", item1)
   c.Set("b", "2", NewItem("SAMPLE BODY FOR TESTING"))
@@ -93,7 +93,7 @@ func TestRemovesAllSecondaryItemsFromTheCache(t *testing.T) {
 
 func TestHandlesRemovalOfAnInvalidPrimaryKey(t *testing.T) {
   spec := gspec.New(t)
-  c := New(550)
+  c := New(Configure().Size(550))
   item1 := NewItem("SAMPLE BODY FOR TESTING")
   c.Set("a", "1", item1)
   c.Remove("b")
@@ -103,7 +103,7 @@ func TestHandlesRemovalOfAnInvalidPrimaryKey(t *testing.T) {
 
 func TestRemovesAnIndividualSecondaryItemFromTheCache(t *testing.T) {
   spec := gspec.New(t)
-  c := New(550)
+  c := New(Configure().Size(550))
   item1 := NewItem("SAMPLE BODY FOR TESTING")
   item2 :=  NewItem("SAMPLE BODY FOR TESTING")
   c.Set("a", "1", item1)
@@ -118,7 +118,7 @@ func TestRemovesAnIndividualSecondaryItemFromTheCache(t *testing.T) {
 
 func TestHandelsRemovalOfAnInvalidSecondaryKey(t *testing.T) {
   spec := gspec.New(t)
-  c := New(550)
+  c := New(Configure().Size(550))
   item1 := NewItem("SAMPLE BODY FOR TESTING")
   item2 :=  NewItem("SAMPLE BODY FOR TESTING")
   c.Set("a", "1", item1)
@@ -136,8 +136,8 @@ type ItemToCache struct {
   length int
 }
 
-func (i *ItemToCache) Size() int64 {
-  return int64(i.length)
+func (i *ItemToCache) Debug() []byte {
+  return []byte("")
 }
 
 func (i *ItemToCache) Expires() time.Time {
