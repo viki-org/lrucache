@@ -63,12 +63,13 @@ func (l *List) Promote(node *Node) {
   l.Unlock()
 }
 
-func (l *List) Prune(count int) []*Node {
+func (l *List) Prune(count int) (nodes []*Node) {
+  nodes = make([]*Node, count)
   l.Lock()
-  nodes := make([]*Node, count)
+  defer l.Unlock()
   for i := 0; i < count; i++ {
     node := l.tail
-    if node == nil { break }
+    if node == nil { return }
     nodes[i] = node
     l.tail = node.prev
     if node.prev != nil {
@@ -76,9 +77,8 @@ func (l *List) Prune(count int) []*Node {
     } else {
       l.head = nil
       l.tail = nil
-      break
+      return
     }
   }
-  l.Unlock()
-  return nodes
+  return
 }

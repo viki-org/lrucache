@@ -28,7 +28,7 @@ func New(configuration *Configuration) *LRUCache {
   c := &LRUCache {
     list: new(List),
     configuration: configuration,
-    groups: make(map[string]*Group, 50000),
+    groups: make(map[string]*Group),
   }
   go c.gc()
   return c
@@ -53,7 +53,7 @@ func (c *LRUCache) Set(primaryKey string, secondaryKey string, item CacheItem) {
       c.Lock()
       group = c.groups[primaryKey]
       if group == nil {
-        group = &Group{key: primaryKey, nodes: make(map[string]*Node, 5000),}
+        group = &Group{key: primaryKey, nodes: make(map[string]*Node),}
         c.groups[primaryKey] = group
       }
       c.Unlock()
@@ -171,7 +171,7 @@ func (c *LRUCache) gc() {
   for {
     runtime.ReadMemStats(ms)
     if ms.HeapAlloc < c.configuration.size {
-      time.Sleep(30 * time.Second)
+      time.Sleep(15 * time.Second)
       continue
     }
     nodes := c.list.Prune(c.configuration.itemsToPrune)
@@ -187,7 +187,8 @@ func (c *LRUCache) gc() {
       }
       group.Unlock()
     }
+    nodes = nil
     if c.configuration.callback != nil { c.configuration.callback() }
-    time.Sleep(2 * time.Second)
+    time.Sleep(10 * time.Second)
   }
 }
