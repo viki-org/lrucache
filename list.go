@@ -45,14 +45,18 @@ func (l *List) Remove(node *Node) {
 }
 
 func (l *List) Promote(node *Node) {
+  l.Lock()
+  defer l.Unlock()
   if l.head == node { return }
   if node.prev == nil { //the node was disconnected
     l.Push(node)
     return
   }
-  l.Lock()
   if l.tail == node {
     l.tail = node.prev
+  } else if node.next == nil {
+    //just a safe check to handle rogue nodes which have node.next as nil, this condition may never happen too as we defer the unlock now
+    return
   } else {
     node.next.prev = node.prev
   }
@@ -60,7 +64,6 @@ func (l *List) Promote(node *Node) {
   node.next = l.head
   l.head = node
   node.next.prev = node
-  l.Unlock()
 }
 
 func (l *List) Prune(count int) (nodes []*Node) {
