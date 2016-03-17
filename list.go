@@ -3,6 +3,7 @@ package lrucache
 import (
   "time"
   "sync"
+  "log"
 )
 
 type List struct {
@@ -63,6 +64,7 @@ func (l *List) Promote(node *Node) {
   node.prev.next = node.next
   node.next = l.head
   l.head = node
+  if node.next == nil { return }
   node.next.prev = node
 }
 
@@ -80,6 +82,7 @@ func (l *List) Prune(count int) (nodes []*Node) {
     } else {
       l.head = nil
       l.tail = nil
+      log.Println("Pruning the complete list")
       return
     }
   }

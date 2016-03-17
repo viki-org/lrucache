@@ -37,8 +37,13 @@ func New(configuration *Configuration) *LRUCache {
 func (c *LRUCache) Get(primaryKey string, secondaryKey string) CacheItem {
   group, node := c.getNode(primaryKey, secondaryKey)
   if node == nil { return nil }
-  c.promote(group, node)
-  return node.item
+  group.Lock()
+  defer group.Unlock()
+  group2, node2 := c.getNodeWithoutGroupLock(primaryKey, secondaryKey)
+  if node2 == nil { return nil }
+  if group2 != group { return nil }
+  c.promoteWithoutGroupLock(group2, node2)
+  return node2.item
 }
 
 func (c *LRUCache) Set(primaryKey string, secondaryKey string, item CacheItem) {
@@ -143,10 +148,19 @@ func (c *LRUCache) getNode(primaryKey string, secondaryKey string) (*Group, *Nod
   group, ok := c.groups[primaryKey]
   c.RUnlock()
   if ok == false { return nil, nil }
-
   group.RLock()
   node, _ := group.nodes[secondaryKey]
   group.RUnlock()
+  return group, node
+}
+
+//To be called when already a group lock is obtained by the caller
+func (c *LRUCache) getNodeWithoutGroupLock(primaryKey string, secondaryKey string) (*Group, *Node) {
+  c.RLock()
+  group, ok := c.groups[primaryKey]
+  c.RUnlock()
+  if ok == false { return nil, nil }
+  node, _ := group.nodes[secondaryKey]
   return group, node
 }
 
@@ -163,6 +177,18 @@ func (c *LRUCache) promote(group *Group, node *Node) {
     node.promotable = now.Add(time.Minute * 10)
   }
   group.Unlock()
+}
+
+//To be called when already a group lock is obtained by the caller
+func (c *LRUCache) promoteWithoutGroupLock(group *Group, node *Node) {
+  now := time.Now()
+  promotable := node.promotable
+  if now.Before(promotable) { return }
+
+  if now.After(node.promotable) {
+    c.list.Promote(node)
+    node.promotable = now.Add(time.Minute * 10)
+  }
 }
 
 func (c *LRUCache) gc() {
