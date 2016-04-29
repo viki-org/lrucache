@@ -35,29 +35,41 @@ func New(configuration *Configuration) *LRUCache {
 }
 
 func (c *LRUCache) Get(primaryKey string, secondaryKey string) CacheItem {
-  group, node := c.getNode(primaryKey, secondaryKey)
+  group, node, item := c.getNode(primaryKey, secondaryKey)
   if node == nil { return nil }
-  c.promote(group, node)
-  return node.item
+  c.promote(group, secondaryKey)
+  return item
+}
+
+func (c *LRUCache) setGroup(primaryKey string) {
+    c.Lock()
+    defer c.Unlock()
+    group, ok := c.groups[primaryKey]
+    if ok == true {
+       // A parallel Set assigned group already. Returning
+       return
+    }
+    group = &Group{key: primaryKey, nodes: make(map[string]*Node),}
+    c.groups[primaryKey] = group
 }
 
 func (c *LRUCache) Set(primaryKey string, secondaryKey string, item CacheItem) {
-  group, existing  := c.getNode(primaryKey, secondaryKey)
-  if existing != nil {
-    group.Lock()
-    existing.item = item
-    group.Unlock()
-    c.promote(group, existing)
-  } else {
-    if group == nil {
-      c.Lock()
-      group = c.groups[primaryKey]
-      if group == nil {
-        group = &Group{key: primaryKey, nodes: make(map[string]*Node),}
-        c.groups[primaryKey] = group
-      }
-      c.Unlock()
-    }
+  c.RLock()
+  group, ok := c.groups[primaryKey]
+  c.RUnlock()
+  if ok == false {
+    c.setGroup(primaryKey)
+  }
+
+  c.RLock()
+  defer c.RUnlock()
+  group, ok = c.groups[primaryKey]
+  if ok == false {
+     //GC has deleted this node. Not caching this item. Next request will cache it
+     return
+  }
+  node, ok := group.nodes[secondaryKey]
+  if ok == false {
     node := &Node{
       item: item,
       group: group,
@@ -68,6 +80,11 @@ func (c *LRUCache) Set(primaryKey string, secondaryKey string, item CacheItem) {
     group.nodes[secondaryKey] = node
     group.Unlock()
     c.list.Push(node)
+  } else {
+    group.Lock()
+    node.item = item
+    group.Unlock()
+    c.promote(group, secondaryKey)
   }
 }
 
@@ -138,31 +155,35 @@ func (c *LRUCache) RemoveSecondary(primaryKey string, secondaryKey string) bool 
   return true
 }
 
-func (c *LRUCache) getNode(primaryKey string, secondaryKey string) (*Group, *Node) {
+func (c *LRUCache) getNode(primaryKey string, secondaryKey string) (*Group, *Node, CacheItem) {
   c.RLock()
   group, ok := c.groups[primaryKey]
   c.RUnlock()
-  if ok == false { return nil, nil }
+  if ok == false { return nil, nil, nil }
 
   group.RLock()
   node, _ := group.nodes[secondaryKey]
+  item := node.item
   group.RUnlock()
-  return group, node
+  return group, node, item
 }
 
-func (c *LRUCache) promote(group *Group, node *Node) {
-  now := time.Now()
+func (c *LRUCache) promote(group *Group, secondaryKey string) {
   group.RLock()
+  defer group.RUnlock()
+  now := time.Now()
+  node, ok := group.nodes[secondaryKey]
+  if ok == false {
+    // No use of promoting the node, since its deleted by GC
+    return
+  }
   promotable := node.promotable
-  group.RUnlock()
   if now.Before(promotable) { return }
 
-  group.Lock()
   if now.After(node.promotable) {
     c.list.Promote(node)
     node.promotable = now.Add(time.Minute * 10)
   }
-  group.Unlock()
 }
 
 func (c *LRUCache) gc() {
@@ -179,13 +200,19 @@ func (c *LRUCache) gc() {
       if node == nil { break }
       group := node.group
       group.Lock()
+      if (node.prev != nil || node.next != nil) {
+        group.Unlock()
+        continue
+      }
       delete(group.nodes, node.key)
+      group.Unlock()
       if len(group.nodes) == 0 {
         c.Lock()
-        delete(c.groups, group.key)
+        if len(group.nodes) == 0 {
+          delete(c.groups, group.key)
+        }
         c.Unlock()
       }
-      group.Unlock()
     }
     nodes = nil
     if c.configuration.callback != nil { c.configuration.callback() }

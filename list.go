@@ -82,6 +82,8 @@ func (l *List) Prune(count int) (nodes []*Node) {
       l.tail = nil
       return
     }
+    node.prev = nil
+    node.next = nil
   }
   return
 }
