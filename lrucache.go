@@ -35,8 +35,17 @@ func New(configuration *Configuration) *LRUCache {
 }
 
 func (c *LRUCache) Get(primaryKey string, secondaryKey string) CacheItem {
-  group, node, item := c.getNode(primaryKey, secondaryKey)
-  if node == nil { return nil }
+  c.RLock()
+  defer c.RUnlock()
+  group, ok := c.groups[primaryKey]
+  if ok == false { return nil }
+
+  group.RLock()
+  node, ok := group.nodes[secondaryKey]
+  item := node.item
+  group.RUnlock()
+  if ok == false { return nil }
+
   c.promote(group, secondaryKey)
   return item
 }
