@@ -42,9 +42,12 @@ func (c *LRUCache) Get(primaryKey string, secondaryKey string) CacheItem {
 
   group.RLock()
   node, ok := group.nodes[secondaryKey]
+  if ok == false {
+    group.RUnlock()
+    return nil
+  }
   item := node.item
   group.RUnlock()
-  if ok == false { return nil }
 
   c.promote(group, secondaryKey)
   return item
