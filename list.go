@@ -63,6 +63,7 @@ func (l *List) Promote(node *Node) {
   node.prev.next = node.next
   node.next = l.head
   l.head = node
+  if node.next == nil { return }
   node.next.prev = node
 }
 
