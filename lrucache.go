@@ -181,8 +181,8 @@ func (c *LRUCache) getNode(primaryKey string, secondaryKey string) (*Group, *Nod
 }
 
 func (c *LRUCache) promote(group *Group, secondaryKey string) {
-  group.RLock()
-  defer group.RUnlock()
+  group.Lock()
+  defer group.Unlock()
   now := time.Now()
   node, ok := group.nodes[secondaryKey]
   if ok == false {
