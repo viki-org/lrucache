@@ -1,10 +1,10 @@
 package lrucache
 
 import (
-  "time"
+	"time"
 )
 
 type CacheItem interface {
-  Expires() time.Time
-  Debug() []byte
+	Expires() time.Time
+	Debug() []byte
 }
