@@ -1,0 +1,4 @@
+github.com/quipo/statsd v0.0.0-20180118161217-3d6a5565f314 h1:86XpVGN4oVnVheHik6ioWg+1fOnWu1GgyNzV6cr2ifs=
+github.com/quipo/statsd v0.0.0-20180118161217-3d6a5565f314/go.mod h1:1COUodqytMiv/GkAVUGhc0CA6e8xak5U4551TY7iEe0=
+github.com/viki-org/gspec v0.0.0-20140325024142-47346e9d6a73 h1:q8M5mTSEXbNYykeZCwkpwusqYWvtmyhsbV/GMeORUoU=
+github.com/viki-org/gspec v0.0.0-20140325024142-47346e9d6a73/go.mod h1:Wnx0T7+e209lUTM4pqBKF+Q+4GF1o5zTOkIKwWulYJs=

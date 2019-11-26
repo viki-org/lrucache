@@ -3,6 +3,7 @@ package lrucache
 // Package lrucache implements a least-recently-used cache
 
 import (
+	"fmt"
 	"io"
 	"runtime"
 	"strconv"
@@ -211,6 +212,10 @@ func (c *LRUCache) RemoveSecondary(primaryKey string, secondaryKey string) bool 
 
 func (c *LRUCache) purge() {
 	if c.gcFactor > 0 {
+		ms := new(runtime.MemStats)
+		runtime.ReadMemStats(ms)
+		before := ms.HeapAlloc
+
 		nodes := c.list.Prune(int(c.gcFactor))
 		for _, node := range nodes {
 			if node == nil {
@@ -221,7 +226,14 @@ func (c *LRUCache) purge() {
 			if len(group.nodes) == 0 {
 				delete(c.groups, group.key)
 			}
+			fmt.Printf("Evicted node '%s' - group '%s'\n", node.key, group.key)
 		}
+
+		runtime.ReadMemStats(ms)
+		after := ms.HeapAlloc
+
+		c.configuration.statsd.Evict()
+		c.configuration.statsd.MemEvicted(before - after)
 	}
 }
 
