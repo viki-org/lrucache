@@ -3,6 +3,7 @@ package lrucache
 // Package lrucache implements a least-recently-used cache
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"runtime"
@@ -52,6 +53,13 @@ type (
 	DbgCmd struct {
 		writer   io.Writer
 		doneChan chan struct{}
+	}
+
+	EvictLog struct {
+		Source string
+		Time   time.Time
+		Node   string
+		Group  string
 	}
 )
 
@@ -226,7 +234,14 @@ func (c *LRUCache) purge() {
 			if len(group.nodes) == 0 {
 				delete(c.groups, group.key)
 			}
-			fmt.Printf("Evicted node '%s' - group '%s'\n", node.key, group.key)
+			logItem := EvictLog{
+				Source: "lrucache",
+				Time:   time.Now(),
+				Node:   node.key,
+				Group:  group.key,
+			}
+			marshalled, _ := json.Marshal(logItem)
+			fmt.Println(marshalled)
 		}
 
 		runtime.ReadMemStats(ms)
