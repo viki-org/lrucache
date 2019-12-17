@@ -8,6 +8,7 @@ import (
 	"io"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -56,10 +57,11 @@ type (
 	}
 
 	EvictLog struct {
-		Source string
-		Time   time.Time
-		Node   string
-		Group  string
+		Event     string `json:"event"`
+		Source    string `json:"source"`
+		Timestamp string `json:"timestamp"`
+		Node      string `json:"node"`
+		Group     string `json:"group"`
 	}
 )
 
@@ -235,13 +237,14 @@ func (c *LRUCache) purge() {
 				delete(c.groups, group.key)
 			}
 			logItem := EvictLog{
-				Source: "lrucache",
-				Time:   time.Now(),
-				Node:   node.key,
-				Group:  group.key,
+				Event:     "cacheEvicted",
+				Source:    "lrucache",
+				Timestamp: time.Now().Format(time.RFC3339),
+				Node:      node.key,
+				Group:     group.key,
 			}
 			marshalled, _ := json.Marshal(logItem)
-			fmt.Println(marshalled)
+			fmt.Println(hydrateString(string(marshalled)))
 		}
 
 		runtime.ReadMemStats(ms)
@@ -290,4 +293,8 @@ func (c *LRUCache) gc() {
 
 		time.Sleep(10 * time.Second)
 	}
+}
+
+func hydrateString(s string) string {
+	return strings.Replace(s, "\\u0026", "&", -1)
 }
