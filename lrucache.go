@@ -3,9 +3,12 @@ package lrucache
 // Package lrucache implements a least-recently-used cache
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -51,6 +54,14 @@ type (
 	DbgCmd struct {
 		writer   io.Writer
 		doneChan chan struct{}
+	}
+
+	EvictLog struct {
+		Event     string `json:"event"`
+		Source    string `json:"source"`
+		Timestamp string `json:"timestamp"`
+		Node      string `json:"node"`
+		Group     string `json:"group"`
 	}
 )
 
@@ -211,6 +222,10 @@ func (c *LRUCache) RemoveSecondary(primaryKey string, secondaryKey string) bool 
 
 func (c *LRUCache) purge() {
 	if c.gcFactor > 0 {
+		ms := new(runtime.MemStats)
+		runtime.ReadMemStats(ms)
+		before := ms.HeapAlloc
+
 		nodes := c.list.Prune(int(c.gcFactor))
 		for _, node := range nodes {
 			if node == nil {
@@ -221,7 +236,22 @@ func (c *LRUCache) purge() {
 			if len(group.nodes) == 0 {
 				delete(c.groups, group.key)
 			}
+			logItem := EvictLog{
+				Event:     "cacheEvicted",
+				Source:    "lrucache",
+				Timestamp: time.Now().Format(time.RFC3339),
+				Node:      node.key,
+				Group:     group.key,
+			}
+			marshalled, _ := json.Marshal(logItem)
+			fmt.Println(hydrateString(string(marshalled)))
 		}
+
+		runtime.ReadMemStats(ms)
+		after := ms.HeapAlloc
+
+		c.configuration.statsd.Evict()
+		c.configuration.statsd.MemEvicted(before - after)
 	}
 }
 
@@ -263,4 +293,8 @@ func (c *LRUCache) gc() {
 
 		time.Sleep(10 * time.Second)
 	}
+}
+
+func hydrateString(s string) string {
+	return strings.Replace(s, "\\u0026", "&", -1)
 }
