@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"runtime"
 	"strconv"
 	"strings"
@@ -57,11 +58,12 @@ type (
 	}
 
 	EvictLog struct {
-		Event     string `json:"event"`
-		Source    string `json:"source"`
-		Timestamp string `json:"timestamp"`
-		Node      string `json:"node"`
-		Group     string `json:"group"`
+		Event         string  `json:"event"`
+		Source        string  `json:"source"`
+		Timestamp     string  `json:"timestamp"`
+		Node          string  `json:"node"`
+		Group         string  `json:"group"`
+		MemoryEvicted float64 `json:"memory_evicted"`
 	}
 )
 
@@ -231,17 +233,25 @@ func (c *LRUCache) purge() {
 			if node == nil {
 				break
 			}
+			runtime.ReadMemStats(ms)
+			start := ms.HeapAlloc
+
 			group := node.group
 			delete(group.nodes, node.key)
 			if len(group.nodes) == 0 {
 				delete(c.groups, group.key)
 			}
+
+			runtime.ReadMemStats(ms)
+			end := ms.HeapAlloc
+
 			logItem := EvictLog{
-				Event:     "cacheEvicted",
-				Source:    "lrucache",
-				Timestamp: time.Now().Format(time.RFC3339),
-				Node:      node.key,
-				Group:     group.key,
+				Event:         "cacheEvicted",
+				Source:        "lrucache",
+				Timestamp:     time.Now().Format(time.RFC3339),
+				Node:          node.key,
+				Group:         group.key,
+				MemoryEvicted: math.Abs(float64(start-end) / 1000.0),
 			}
 			marshalled, _ := json.Marshal(logItem)
 			fmt.Println(hydrateString(string(marshalled)))
