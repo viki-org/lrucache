@@ -3,15 +3,14 @@ package lrucache
 // Package lrucache implements a least-recently-used cache
 
 import (
-	"encoding/json"
-	"fmt"
 	"io"
-	"math"
 	"runtime"
 	"strconv"
-	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 type (
@@ -55,15 +54,6 @@ type (
 	DbgCmd struct {
 		writer   io.Writer
 		doneChan chan struct{}
-	}
-
-	EvictLog struct {
-		Event         string  `json:"event"`
-		Source        string  `json:"source"`
-		Timestamp     string  `json:"timestamp"`
-		Node          string  `json:"node"`
-		Group         string  `json:"group"`
-		MemoryEvicted float64 `json:"memory_evicted"`
 	}
 )
 
@@ -223,45 +213,42 @@ func (c *LRUCache) RemoveSecondary(primaryKey string, secondaryKey string) bool 
 }
 
 func (c *LRUCache) purge() {
-	if c.gcFactor > 0 {
-		ms := new(runtime.MemStats)
-		runtime.ReadMemStats(ms)
-		before := ms.HeapAlloc
+	zerolog.TimestampFieldName = "timestamp"
+	zerolog.TimeFieldFormat = time.RFC3339
 
+	if c.gcFactor > 0 {
 		nodes := c.list.Prune(int(c.gcFactor))
 		for _, node := range nodes {
 			if node == nil {
 				break
 			}
-			runtime.ReadMemStats(ms)
-			start := ms.HeapAlloc
 
 			group := node.group
+
+			memEvicted, err := strconv.Atoi(string(node.item.Debug()))
+			if err != nil {
+				memEvicted = 0
+			}
+
 			delete(group.nodes, node.key)
 			if len(group.nodes) == 0 {
 				delete(c.groups, group.key)
 			}
 
-			runtime.ReadMemStats(ms)
-			end := ms.HeapAlloc
+			log.Info().
+				Str("event", "cacheEvicted").
+				Str("source", "lrucache").
+				Str("node", node.key).
+				Str("group", group.key).
+				Float64("memoryEvicted", float64(memEvicted)/1000.0).
+				Send()
 
-			logItem := EvictLog{
-				Event:         "cacheEvicted",
-				Source:        "lrucache",
-				Timestamp:     time.Now().Format(time.RFC3339),
-				Node:          node.key,
-				Group:         group.key,
-				MemoryEvicted: math.Abs(float64(start-end) / 1000.0),
+			if memEvicted > 0 {
+				c.configuration.statsd.MemEvicted(uint64(memEvicted))
 			}
-			marshalled, _ := json.Marshal(logItem)
-			fmt.Println(hydrateString(string(marshalled)))
 		}
 
-		runtime.ReadMemStats(ms)
-		after := ms.HeapAlloc
-
 		c.configuration.statsd.Evict()
-		c.configuration.statsd.MemEvicted(before - after)
 	}
 }
 
@@ -303,8 +290,4 @@ func (c *LRUCache) gc() {
 
 		time.Sleep(10 * time.Second)
 	}
-}
-
-func hydrateString(s string) string {
-	return strings.Replace(s, "\\u0026", "&", -1)
 }
